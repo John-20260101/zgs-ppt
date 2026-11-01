@@ -17,7 +17,9 @@
 skillhub install zgs-ppt --namespace user_3b69e11c
 ```
 
-页面：https://skillhub.cn/skills/zgs-ppt
+或在网页上复制安装提示词：`请根据 https://skillhub.cn/install/skillhub.md，安装 @user_3b69e11c/zgs-ppt。`
+
+页面：https://skillhub.cn/skills/user_3b69e11c/zgs-ppt
 
 > 发布包不含 `.pptx` / `.pdf` / `.docx`（平台只收文本类文件），`LICENSE`、`.gitignore` 也在发布时排除；
 > 示例的 outline.json 与大纲/审计文档保留，装好后可直接 `python3 scripts/build_pptx.py examples/case-wang/王某某-outline.json` 复现 13 页成稿。
