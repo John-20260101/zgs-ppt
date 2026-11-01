@@ -1,0 +1,7 @@
+{
+  "_note": "build_pptx.py 内置同一份配色；此文件供人工查阅与自定义。自定义时在 outline.json 里写 theme_spec。",
+  "_keys": ["ink 正文", "accent 主色", "accent2 强调", "muted 次要", "band 浅底", "line 分隔线", "bg 背景"],
+  "academic": {"ink": "#132133", "accent": "#1F4E79", "accent2": "#C08A2E", "muted": "#6C7A8C", "band": "#F1F4F9", "line": "#D8DFE9", "bg": "#FFFFFF"},
+  "tech": {"ink": "#0B1622", "accent": "#0E7C86", "accent2": "#F2A93B", "muted": "#5F7183", "band": "#EDF4F6", "line": "#CFDDE2", "bg": "#FFFFFF"},
+  "warm": {"ink": "#2B2118", "accent": "#A8432F", "accent2": "#7A8C5A", "muted": "#7C6E63", "band": "#F7F1EA", "line": "#E6D8C9", "bg": "#FFFDFA"}
+}
