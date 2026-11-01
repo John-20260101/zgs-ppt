@@ -148,6 +148,12 @@ python3 scripts/verify_pptx.py "张三-成长赛道展示.pptx" --expect-pages 1
 
 两个工具的关系：`build_pptx.py` 的审计防止"写的时候就超载"，`verify_pptx.py` 防止"算对了但渲染出来不对"。两个都过，才算这版 PPT 能交。
 
+交稿前再跑一次文件级检查（页数、尺寸、备注是否漏写）：
+
+```bash
+python3 scripts/check_deck.py "张三-成长赛道展示.pptx" --expect 13
+```
+
 改完重跑，最多两轮；两轮还不干净，通常是论点太多，回到 Step 3 砍页，而不是继续调脚本。
 
 ## 7 交付清单

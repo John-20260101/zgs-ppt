@@ -46,6 +46,7 @@ zgs-ppt/
 ├── scripts/
 │   ├── build_pptx.py            outline.json → pptx（+估算审计，可导出 PDF）
 │   ├── verify_pptx.py           渲染复核：转 PDF 查越界/压字/过小字号
+│   ├── check_deck.py            文件级检查：页数/尺寸/备注
 │   └── extract_content.py       材料抽取（docx/pptx/pdf/md/txt，带页码锚点）
 ├── assets/themes.json           3 套主题色（academic / tech / warm）
 └── evals/                       3 个测试提示 + 一份样例材料
