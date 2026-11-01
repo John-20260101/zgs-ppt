@@ -1,0 +1,12 @@
+# zgs-ppt 的 bundle patch：把本包自带的 SKILL.md 挂进会话技能目录。
+#
+# 安装：dsh plugin add github:John-20260101/zgs-ppt
+#
+# 两条硬规则：
+#   · `name` 必须与 package.json 的 `name` 完全一致，否则开机解析失败；
+#   · `id` 是 Cordis 插件 id（= lib/index.js 的 export const name）。
+#
+# 本插件没有需要在此覆写的配置：它只提供一条技能，无端点、无密钥、无阈值。
+- insert:
+    - id: zgs-ppt
+      name: 'zgs-ppt'

@@ -11,6 +11,16 @@
 
 ## 安装
 
+### 方式一：DSH 插件（推荐）
+
+```bash
+dsh plugin add github:John-20260101/zgs-ppt --profile default
+```
+
+包内声明了 `dsh.bundle`（`cordis.patch.yml` + `lib/index.js`），装好后本包自带的 `SKILL.md` 直接出现在会话技能目录里。改 `SKILL.md` 不需要重装：provider 监听文件，改完热刷新。
+
+### 方式二：装成技能目录（Claude Code / Codex / 任何扫描 skills 的客户端）
+
 ```bash
 git clone git@github.com:John-20260101/zgs-ppt.git ~/Desktop/Program/deepseek/zgs-ppt
 cd ~/Desktop/Program/deepseek/zgs-ppt
@@ -19,10 +29,12 @@ cd ~/Desktop/Program/deepseek/zgs-ppt
 
 - 新开一个会话后生效（技能目录在会话启动时扫描）。
 - 不想用软链：`./install.sh --copy`；卸载：`./install.sh --uninstall`。
-- 自检：
+
+### 自检
 
 ```bash
-python3 scripts/build_pptx.py examples/case-wang/王某某-outline.json --audit-only
+node scripts/smoke_plugin.mjs                                              # 插件层
+python3 scripts/build_pptx.py examples/case-wang/王某某-outline.json --audit-only   # 技能层
 ```
 
 ## 用法
@@ -38,18 +50,24 @@ python3 scripts/build_pptx.py examples/case-wang/王某某-outline.json --audit-
 ```
 zgs-ppt/
 ├── SKILL.md                     主流程（取材→大纲→卡点→渲染→审计→交付）
+├── lib/index.js                 DSH 技能提供者（把本包 SKILL.md 挂进 ctx.skills）
+├── cordis.patch.yml             bundle patch（dsh plugin add 读它）
+├── package.json                 声明 dsh.bundle；npm/市场据此安装
 ├── references/
 │   ├── page-skeletons.md        三套 13 页骨架（成长/就业/职教）+ 页数预算 + 七段式映射
 │   ├── awarded-cases.md         上一届（第三届）获奖案例、结构规律、按组别落页做法
-│   ├── slide-types.md           outline.json 契约：10 种页型、字段、文案上限
+│   ├── slide-types.md           outline.json 契约：17 种页型、字段、文案上限
 │   └── material-intake.md       素材卡 18 字段、材料抽取映射、缺口替代方案
 ├── scripts/
 │   ├── build_pptx.py            outline.json → pptx（+估算审计，可导出 PDF）
 │   ├── verify_pptx.py           渲染复核：转 PDF 查越界/压字/过小字号
 │   ├── check_deck.py            文件级检查：页数/尺寸/备注
+│   ├── smoke_plugin.mjs         插件层自检（manifest、frontmatter、list/get）
 │   └── extract_content.py       材料抽取（docx/pptx/pdf/md/txt，带页码锚点）
 ├── assets/themes.json           3 套主题色（academic / tech / warm）
-└── evals/                       3 个测试提示 + 一份样例材料
+├── examples/case-wang/          13 页真实成稿（pptx/pdf/大纲/审计/outline.json）
+├── evals/                       3 个测试提示 + 一份样例材料
+└── install.sh                   安装到各 CLI 技能目录（软链/复制/卸载）
 ```
 
 ## 依赖

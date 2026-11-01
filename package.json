@@ -1,0 +1,55 @@
+{
+  "name": "zgs-ppt",
+  "version": "0.2.0",
+  "description": "Deck-generation skill for the National College Student Career Planning Competition: turns a contestant's profile, materials and photos into a 12-page-or-more reading-type PPTX, with a two-layer audit (estimated layout, then render check) and three built-in themes.",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "skill",
+    "pptx",
+    "powerpoint",
+    "career-planning",
+    "competition",
+    "slides"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "smoke": "node scripts/smoke_plugin.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "lib",
+    "SKILL.md",
+    "README.md",
+    "CHANGELOG.md",
+    "references",
+    "scripts",
+    "assets",
+    "cordis.patch.yml",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "author": "John-20260101",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/John-20260101/zgs-ppt.git"
+  },
+  "homepage": "https://github.com/John-20260101/zgs-ppt#readme",
+  "bugs": {
+    "url": "https://github.com/John-20260101/zgs-ppt/issues"
+  }
+}
