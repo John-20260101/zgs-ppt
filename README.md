@@ -14,7 +14,7 @@
 ### 方式一：DSH 插件（推荐）
 
 ```bash
-dsh plugin add github:John-20260101/zgs-ppt --profile default
+dsh plugin --profile default add github:John-20260101/zgs-ppt
 ```
 
 包内声明了 `dsh.bundle`（`cordis.patch.yml` + `lib/index.js`），装好后本包自带的 `SKILL.md` 直接出现在会话技能目录里。改 `SKILL.md` 不需要重装：provider 监听文件，改完热刷新。
