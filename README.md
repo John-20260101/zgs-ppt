@@ -9,6 +9,19 @@
 职规赛材料三件套里，报告有 `zgs-review`、问答有 `zgs-qa`，唯独"现场放的这份 PPT"没人管。这个技能补的就是这一块：
 把散材料收成素材卡 → 按组别套七段式页面骨架 → **先出逐页大纲让人确认** → 再渲成可编辑 `.pptx` → 附审计报告（溢出、压字、页数、维度覆盖、素材缺口）。
 
+## SkillHub
+
+已发布到 SkillHub：**职规赛路演PPT制作**（`@user_3b69e11c/zgs-ppt`）
+
+```bash
+skillhub install zgs-ppt --namespace user_3b69e11c
+```
+
+页面：https://skillhub.cn/skills/zgs-ppt
+
+> 发布包不含 `.pptx` / `.pdf` / `.docx`（平台只收文本类文件），`LICENSE`、`.gitignore` 也在发布时排除；
+> 示例的 outline.json 与大纲/审计文档保留，装好后可直接 `python3 scripts/build_pptx.py examples/case-wang/王某某-outline.json` 复现 13 页成稿。
+
 ## 安装
 
 ### 方式一：DSH 插件（推荐）
