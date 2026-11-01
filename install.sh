@@ -50,4 +50,4 @@ done
 
 echo
 echo "installed. 新开一个会话后生效（技能目录在会话启动时扫描）。"
-echo "自检：python3 $DEST/scripts/build_pptx.py $DEST/examples/case-wang/王某某-outline.json --audit-only"
+echo "自检：python3 $DEST/scripts/build_pptx.py $DEST/examples/case-wang/王某某-outline.json --audit-only --report /tmp/zgs-ppt-selftest.md"

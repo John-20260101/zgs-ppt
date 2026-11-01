@@ -1,0 +1,37 @@
+name: smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install python-pptx python-docx Pillow
+      - name: Build example deck (13 pages, Z5)
+        run: |
+          python scripts/build_pptx.py "examples/case-wang/王某某-outline.json" \
+            -o /tmp/demo.pptx --report /tmp/demo-audit.md
+          python - <<'PY'
+          from pptx import Presentation
+          p = Presentation("/tmp/demo.pptx")
+          assert len(p.slides) == 13, f"expected 13 pages, got {len(p.slides)}"
+          assert round(p.slide_width / 914400, 2) == 13.33
+          print("ok:", len(p.slides), "pages")
+          PY
+      - name: Audit must be clean of overflow
+        run: |
+          if grep -q "紧度峰值：1[0-9][0-9]%" /tmp/demo-audit.md; then
+            echo "text overflow detected"; cat /tmp/demo-audit.md; exit 1
+          fi
+          grep "结构检查" -A3 /tmp/demo-audit.md || true
+      - name: Verify outline contract
+        run: python scripts/build_pptx.py "examples/case-wang/王某某-outline.json" --audit-only --report /tmp/a.md
