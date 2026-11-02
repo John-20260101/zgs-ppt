@@ -1,7 +1,7 @@
 {
   "name": "zgs-ppt",
-  "version": "0.3.0",
-  "description": "Deck-generation skill for the National College Student Career Planning Competition: turns a contestant's profile, materials and photos into a 12-page-or-more reading-type PPTX, with a two-layer audit (estimated layout, then render check) and three built-in themes.",
+  "version": "0.4.3",
+  "description": "Deck-generation skill for the National College Student Career Planning Competition: turns a contestant's profile, materials and photos into a 15-20 page reading-type PPTX, with a two-layer audit (estimated layout, then render check) and three built-in themes.",
   "keywords": [
     "deepseek-harness",
     "dsh",
