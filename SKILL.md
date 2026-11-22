@@ -2,9 +2,9 @@
 name: zgs-ppt
 slug: zgs-ppt
 displayName: 职规赛路演PPT制作
-version: 0.4.3
+version: 0.5.0
 summary: 职规赛（全国大学生职业规划大赛）展示 PPT 生成：outline.json 是唯一事实源，先出逐页大纲待确认，自检通过再渲染 15–20 页阅读型 .pptx（17 种页型、3 套主题、可套学校模板），附两层审计报告。
-description: 全国大学生职业规划大赛（第四届，2026年10月—2027年4月）生涯发展展示 / 求职综合展示 PPT 生成器。用户给出参赛基本信息（赛道组别、学校专业年级、目标岗位）、项目介绍（生涯发展报告或求职简历主体）与素材（证书、实习、数据、图片），按 Z1–Z5 组别套用七段式页面骨架与四套平台通行框架（成长四段式/成长三幕式/就业四幕式/就业七模块），先输出逐页大纲（页面任务、版式、文案要点、证据位、评分维度），确认后再渲染成可编辑 .pptx（内置 3 套主题，支持用户自带 .pptx 模板），成品是阅读型版面（每页能独立读懂、页数按组别 15–20 页），并附审计报告（文字溢出与压字检测、信息量、素材缺口清单、评分维度覆盖）；写大纲前会参考上一届金奖项目的结构、以及知乎/公众号等平台流传的五套通行框架与共性要点。当用户说"做职规赛 PPT""生涯发展展示""求职综合展示""职业规划大赛 PPT""把我的生涯发展报告做成 PPT""出个 PPT 框架/大纲""PPT 逐页讲什么"，或提到成长赛道、就业赛道、高教组、职教组、天降实习 offer、综合面试时，务必使用本技能；即使用户只说"帮我把这份材料做成比赛要用的 PPT"，只要材料属于职业规划大赛，也应使用。不要用于：职规赛材料打分评审（用 zgs-review）、现场问答题库（用 zgs-qa）、陈述逐字稿（用金牌陈述逆向工程的七段式框架）、中国国际大学生创新大赛 PPT（用 cxds-ppt）、课程课件（用 courseware-generator）。
+description: 全国大学生职业规划大赛（第四届，2026年10月—2027年4月）生涯发展展示 / 求职综合展示 PPT 生成器。用户给出参赛基本信息（赛道组别、学校专业年级、目标岗位）、项目介绍（生涯发展报告或求职简历主体）与素材（证书、实习、数据、图片），按 Z1–Z5 组别套用七段式页面骨架与五套平台通行框架（成长四段式/成长三幕式/就业四幕式/就业七模块），先输出逐页大纲（页面任务、版式、文案要点、证据位、评分维度），确认后再渲染成可编辑 .pptx（内置 3 套主题，支持用户自带 .pptx 模板），成品是阅读型版面（每页能独立读懂、页数按组别 15–20 页），并附审计报告（文字溢出与压字检测、信息量、素材缺口清单、评分维度覆盖）；写大纲前会参考上一届金奖项目的结构、以及知乎/公众号等平台流传的五套通行框架与共性要点。当用户说"做职规赛 PPT""生涯发展展示""求职综合展示""职业规划大赛 PPT""把我的生涯发展报告做成 PPT""出个 PPT 框架/大纲""PPT 逐页讲什么"，或提到成长赛道、就业赛道、高教组、职教组、天降实习 offer、综合面试时，务必使用本技能；即使用户只说"帮我把这份材料做成比赛要用的 PPT"，只要材料属于职业规划大赛，也应使用。不要用于：职规赛材料打分评审（用 zgs-review）、现场问答题库（用 zgs-qa）、陈述逐字稿（用金牌陈述逆向工程的七段式框架）、中国国际大学生创新大赛 PPT（用 cxds-ppt）、课程课件（用 courseware-generator）。
 tags: [职规赛, 职业规划大赛, PPT, 生涯发展展示, 求职综合展示, 路演, 大纲, 排版审计]
 license: MIT
 homepage: https://github.com/John-20260101/zgs-ppt
@@ -28,7 +28,7 @@ homepage: https://github.com/John-20260101/zgs-ppt
 | `<姓名>-<赛道>展示-大纲.md` | 人读视图：逐页论点、文案、证据位、口播要点、风险 |
 | `<姓名>-<赛道>展示.pptx` | 16:9 可编辑，**17 种页型**，3 套主题，可套学校模板，**15–20 页** |
 | 同名 `.pdf` | 由 LibreOffice 转换（有 soffice 时） |
-| `<输出名>-audit.md` | 紧度/溢出/页数/维度覆盖/信息量/素材缺口 |
+| `<输出名>-audit.md` | 紧度/溢出/页数/维度覆盖/信息量/底部空白/备注区间/素材缺口 |
 
 不做的：不打分（`zgs-review`）、不出题库（`zgs-qa`）、不写逐字稿正文（只给每页口播要点）、不代写生涯发展报告与简历。
 
@@ -45,6 +45,8 @@ homepage: https://github.com/John-20260101/zgs-ppt
 | `scripts/build_pptx.py` | 审计 + 渲染 | Step 5、Step 6 |
 | `scripts/verify_pptx.py` | 渲染级复核（越界/压字/过小字号） | Step 7 |
 | `scripts/check_deck.py` | 文件级复核（页数/尺寸/备注） | Step 7 |
+| `scripts/check_outline.py` | JSON 与大纲 md 同源核对（0 匹配即失败） | Step 3、交付前 |
+| `tests/` | 契约回归（17 页型字段、上限、模板包结构） | 改脚本前后 |
 
 ## 1 输入：先判断材料够不够
 
@@ -110,28 +112,12 @@ python3 scripts/extract_content.py <材料文件> <输出.txt>
 3. **交付前必须核一遍两边页序与标题**，这是唯一能发现漂移的办法（比对 md 里的「页面标题」字段）：
 
 ```bash
-python3 - <<'PY'
-import json, re
-d = json.load(open("outline.json", encoding="utf-8"))
-md = open([f for f in __import__("glob").glob("*-大纲.md")][0], encoding="utf-8").read()
-sl = d["slides"]
-content = re.findall(r"^- \*\*页面标题\*\*：(.+?)（一级）\s*(.+?)（重点句）$", md, re.M)
-mains = re.findall(r"^- \*\*主标题\*\*：(.+)$", md, re.M)
-print(f"JSON {len(sl)} 页 ｜ 大纲：封面封底主标题 {len(mains)}、内容页 {len(content)}")
-bad = []
-if len(mains) == 2:
-    if sl[0]["title"] != mains[0].strip():
-        bad.append(f"P1「{mains[0].strip()}」")
-    if sl[-1]["title"] != mains[1].strip():
-        bad.append(f"P{len(sl)}「{mains[1].strip()}」")
-for i, (dim, title) in enumerate(content, 2):
-    if sl[i - 1].get("dim") != dim.strip():
-        bad.append(f"P{i} 维度「{dim.strip()}」")
-    if sl[i - 1]["title"] != title.strip():
-        bad.append(f"P{i} 标题「{title.strip()}」")
-print("全部对齐" if not bad else "需修：" + "；".join(bad))
-PY
+python3 scripts/check_outline.py outline.json 姓名-赛道展示-大纲.md
 ```
+
+它核三件事：**封面与封底的主标题**是否等于 JSON 首末页的 `title`、**内容页「（一级）」的维度**是否等于 `dim`、**「（重点句）」**是否等于 `title`；并且**数量必须严格对上**（主标题 2 条、内容页 = 总页数 − 2）。
+
+> 0.4.x 的文档里这段是内联 heredoc，正则 0 匹配也会打印「全部对齐」——在最该拦的时候发绿灯。0.5.0 起改成脚本，**格式不符、数量不符、任一字段不符都退出 2**。
 
 它一次核三件事：**封面与封底的主标题**是否等于 JSON 首末页的 `title`、**内容页「（一级）」的维度**是否等于 `dim`、**「（重点句）」**是否等于 `title`。预期输出「全部对齐」；若有差异，说明某页改过但只改了一边，同样要修。真正抓不到的是"只改了详细内容里的措辞"，那种只能靠规矩：**改内容一律先改 JSON**。
 
@@ -242,9 +228,18 @@ python3 scripts/build_pptx.py outline.json --audit-only
 | 结构 `page-thin` | 内容页 < 90 字 | 加 `note` 补口径，或换 `detail`/`cards` |
 | 结构 `page-dense` | 内容页 > 520 字 | 拆成"论点页 + 证据页" |
 | `material-gap` | 素材缺口 | 逐条进交付清单，告诉用户答辩前要补 |
-| 备注口播 ≠ 1750–1900 字（7′）/ 1500–1650（6′） | 口播超时或不足 | 按页重写备注，不要机械截断 |
+| 告警 `cap-*`（如 `cap-bullet`） | 单条超过该页型字数上限 | 按提示删到上限内；上限表见 `references/slide-types.md` §1 |
+| 结构 `page-empty-bottom` | 正文竖直跨度 <2.5in（版心 4.55in） | 补一条带口径的小字、换 `detail`/`cards`，或合并同类小页 |
+| 结构 `notes-short` / `notes-long` | 备注低于 1500 或高于 1650（6′）/ 1750–1900（7′） | 按页补或压，**不要机械截断** |
+| 告警 `kpi-note-overflow` | 数字卡注释折行超出卡高 | 注释压到 2 行内，或改用 `source` 页脚放长口径 |
+| E 级 `field-type` / `field-missing` | 字段类型或必填项错（如 `bullets` 写成字符串） | 照提示修 JSON；**脚本不会帮你兜底**，直接退出 2 |
+| E 级 `group-invalid` / `theme-invalid` | 组别或主题拼错 | 改成 Z1–Z5 / academic|tech|warm；写错会让页脚印错赛道 |
+| `label-mismatch` / `dim-invalid` | 页脚组别与 `group` 不符 / `dim` 不在该组维度清单 | 改 `group_label` 或 `dim` |
+| `material-gap` | 素材缺口 | 逐条进交付清单，告诉用户答辩前要补 |
 
 **只要还有 E 级错误或紧度 >100%，不许进 Step 6。** 带着溢出渲染，只会在 Step 7 被同一个问题挡回来，而那时候修的是字号和版面，比改文案贵得多。
+
+> **机器门禁用 `--strict`**：它把「E 级、页数越界、`notes-short`/`notes-long`/`notes-missing`、任一 `cap-*`、紧度 >100%」全部按失败处理并退出 2。人工过目用默认模式（只提示），**交付前必须跑一次 `--strict` 并看到 exit 0**。
 
 ## 6 渲染成 PPTX
 
@@ -257,7 +252,12 @@ python3 scripts/build_pptx.py outline.json -o out.pptx --template 学校模板.p
 
 # 这台机器只用来预览、想更好看时换本机字体
 python3 scripts/build_pptx.py outline.json -o out.pptx --font "PingFang SC"
+
+# 机器门禁（CI / 交付前必跑）：任何 E、页数越界、备注出区间、超上限、紧度>100% 都退出 2
+python3 scripts/build_pptx.py outline.json -o out.pptx --strict
 ```
+
+**套模板要点**：模板自带的示例页会被清空（连 slide part 一起释放，只留母版/版式/主题）。0.4.x 只摘 `sldIdLst` 不释放 part，会让 zip 内出现重名 `slide1.xml`，LibreOffice 直接拒载、PowerPoint 弹「修复」——0.5.0 已修，**旧模板产物请重跑，不要手工修**。
 
 **关于 PDF**：`--pdf` 调用本机 LibreOffice。如果本机没装 pptx 里写的字体（默认微软雅黑），脚本会自动挑一个本机有的中文字体重建预览件再转 PDF——但**预览件的字体仍不是最终字体**，只用来查版式和页数；要直接交 PDF，就在装有目标字体的机器上导出。
 
@@ -274,6 +274,10 @@ python3 scripts/check_deck.py "张三-成长赛道展示.pptx" --expect 18
 ```
 
 `verify_pptx.py` 查三件事：**越界**（文字压到页边 20pt 以内）、**压字**（两个词框交叠 >26% 且两个方向都 >3.5pt）、**过小字号**（渲染高度 <9pt）。输出逐页表，有问题会指出第几页的哪两个词。
+
+它还会报告**字体替换**：渲染件里没有微软雅黑时，行高与字重和 PowerPoint 有差异，越界/压字判定只能作参考——这时候结论要写成「本机复核通过，最终外观请在装有微软雅黑的机器上确认」，不能直接说「版式没问题」。
+
+CI 里加 `--require`：缺 soffice 或 PPTX 打不开（例如模板包损坏）直接退出 2，不许静默跳过。
 
 两个工具的关系：`build_pptx.py` 的审计防"写的时候就超载"，`verify_pptx.py` 防"算对了但渲染出来不对"。**两个都过，才算这版能交。**
 
@@ -313,9 +317,9 @@ python3 scripts/check_deck.py "张三-成长赛道展示.pptx" --expect 18
 
 **三个版式陷阱**（实测踩过，写大纲时就避开）：
 
-- `twocol` 的栏高是固定的，4 条单行要点只占一半、下方必留四成空白，**加字也填不满**（单条上限 30 字≈一行）→ 换 `table`（信息更硬）或 `bullets`（带小字）。
+- `twocol` 栏高固定：0.5.0 起要点从 15.5pt 起自适应并竖直居中，2–3 条也不会贴顶，但**内容太少仍会报 `page-empty-bottom`** → 补一句带口径的 `note`，或换 `table`（信息更硬）。
 - `compare` 中间有橙色 VS 圆标，只适合真正对立的两栏（招聘要求 vs 现状）；并列关系用它会出现不合语义的 VS → 换 `bullets`。
-- `cards` 三卡会被撑到全高、文字只占三成，明显空 → 补成四卡（宁可加一个反向人物），别留空壳。
+- `cards` 三卡会被撑到全高：0.5.0 起卡内正文竖直居中（不再贴顶留空），但信息量仍偏薄 → 宁可补成四卡（加一个反向人物），别留空壳。
 
 ## 10 红线
 
@@ -335,7 +339,10 @@ python3 scripts/check_deck.py "张三-成长赛道展示.pptx" --expect 18
 - 不要手改 pptx 绕过 JSON——下次重跑就丢；
 - 不要把 Python 堆栈收成"生成失败"四个字——用户没法据此行动；
 - 不要为了跑通而删检查（比如跳过 verify）——检查是这技能的价值所在；
-- 依赖缺失就照 §12 给命令，**不改用网页工具或在线转换补齐**。
+- 依赖缺失就照 §12 给命令，**不改用网页工具或在线转换补齐**；
+- `[E] group-invalid` / `theme-invalid` / `field-type`：这是 JSON 写错，照提示改字段，**不要改脚本去兼容**；
+- `[E] json-invalid`：按报的行列号修（多逗号/中文引号/BOM 三种最常见）；
+- `pdf-failed`：模板包结构损坏的信号，重跑一次 build（0.5.0 起产出正常）；仍失败就把 pptx 有无重复 part 的结论报给用户。
 
 ## 12 环境依赖
 
@@ -348,7 +355,15 @@ python3 scripts/check_deck.py "张三-成长赛道展示.pptx" --expect 18
 
 本技能不带 `requirements.txt`，按上表逐项装即可。
 
-**用哪个解释器**：脚本需要 `python-pptx`，务必用装了它的解释器跑（本机为 `~/.workbuddy/binaries/python/envs/default/bin/python`）。managed python 常缺这个包，会 `ModuleNotFoundError`。
+**用哪个解释器**：脚本需要 `python-pptx`。先自检，别记路径：
+
+```bash
+python3 -c "import pptx, docx; print(pptx.__version__)"   # 有输出就用 python3
+```
+
+报 `ModuleNotFoundError` 说明当前解释器缺包——按上表这条装，或改用本机另一个装了它的解释器（`which -a python3` 逐个试）。managed python 常缺该包，硬编码某个绝对路径在换机后必然失效，所以文档不再写死路径。
+
+**模板夹具**：`assets/school-template.pptx` 是 4:3 极简模板（含 1 页示例内容），专测「清空示例页 + 等比缩放」这条路径；自检时可拿它试 `--template`。
 
 ## 13 与其他技能的分工
 
@@ -375,3 +390,6 @@ python3 scripts/check_deck.py "张三-成长赛道展示.pptx" --expect 18
 | 大纲像行业报告 | 抄了政策与趋势 | 趋势压到一页背景，其余写"我"的动作与判断 |
 | 评委追问答不上 | 大纲没写"风险"行 | 每页补一行"最可能被追问什么" |
 | 两轮改不干净 | 论点太多，不是排版问题 | 回 Step 3 砍页，别继续调字号 |
+| `notes-long` 反复出现 | 把备注写成逐字稿 | 每页压到 90–110 字，只留"这一页只讲哪一句" |
+| 明明写了字段但页面上没有 | 该页型不支持这个字段（如 `compare.source` 曾不上版面） | 0.5.0 起 `compare`/`twocol` 的 `source\|note` 都会进页脚；仍缺就先查 `tests/test_contract.py` 的字段清单 |
+| 换主题/换组别后没生效 | 拼错 id 被静默兜底 | 0.5.0 起直接 E 级退出 2，照提示改 |

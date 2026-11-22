@@ -149,11 +149,29 @@
 ```
 要配图时，把 `right` 换成 `"image": "路径.png"`。
 
+## 2.5 字数上限由脚本执行
+
+§1 表格里的上限不是建议，`build_pptx.py` 会逐条查，超了报 `cap-*`（`--strict` 下直接失败）：
+
+| code | 查什么 |
+| :--- | :--- |
+| `cap-title` / `cap-text` | cover ≤20、section ≤24、closing ≤22、quote ≤40 |
+| `cap-bullet` / `cap-bullet-note` | bullets 单条 ≤48、小字 ≤40 |
+| `cap-item` | compare ≤28、twocol ≤30（逐条） |
+| `cap-kpi-value` / `cap-kpi-label` | value ≤8、label ≤14 |
+| `cap-card-body` / `cap-block-body` / `cap-lead` | cards ≤70、detail 块 ≤90、导语 ≤60 |
+| `cap-timeline-what` / `cap-timeline-detail` | ≤36 / ≤18 |
+| `cap-process-detail` / `cap-quad` / `cap-evidence-*` | ≤70 / ≤70 / 名称与「证明什么」各 ≤30 |
+| `cap-caption` / `cap-agenda-*` | 图注 ≤30、目录项 ≤40 |
+
+上限常量与 §1 表格同源维护（代码里的 `CAPS`）。
+
 ## 3 版式常量（改代码时对照）
 
 - 画布 13.333×7.5in；页边距 0.72；标题基线 0.62（高度 0.95）；正文起 1.92；页脚 6.92。
 - 标题字号 30→21 自适应，>26 字告警；正文最小 13pt（detail/cards/process 内部可到 9.5–10.5）。
-- 页脚左侧写组别，右侧写 `03 / 13` 页码。
+- 页脚左侧写组别，右侧写 `03 / 18` 页码。
+- `compare` / `twocol` 的 `source` 或 `note` 会渲染成页脚「数据来源：…」（0.5.0 起）。`kpi`/`bullets`/`table`/`evidence` 同样支持。
 
 ## 4 常见改造
 
@@ -165,4 +183,4 @@
 | `compare-items` | 每栏删到 4 条，把第 5 条移到 `evidence` |
 | `cards-overflow` | 每卡 body 压到 60 字以内 |
 | `matrix-count` | 必须正好 4 块 |
-| `page-count` | Z1/Z2 12–16、Z3–Z5 12–15 |
+| `page-count` | 所有组别 15–20 页（不足补 §2 四类页，超了合并同类页） |

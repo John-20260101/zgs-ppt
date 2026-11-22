@@ -37,7 +37,9 @@ ok(c.resourceBase?.kind === 'directory', 'resourceBase 应为目录')
 
 const def = await get(c)
 ok(def.content.length > 2000, '技能正文过短，疑似只读到 frontmatter')
-for (const needle of ['17 种页型', '12', 'awarded-cases', 'verify_pptx']) {
+// 针脚要钉住「0.5.0 的硬约定」：页型数、页数区间、同源核对脚本、渲染复核、严格门禁
+for (const needle of ['17 种页型', '15–20 页', 'awarded-cases', 'verify_pptx',
+                      'check_outline.py', '--strict']) {
   ok(def.content.includes(needle), `技能正文缺少关键约定：${needle}`)
 }
 

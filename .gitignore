@@ -9,3 +9,6 @@ __pycache__/
 *.preview.pptx
 build/
 dist/
+
+# --audit-only 不带 -o 时会落在 outline.json 旁边，属于临时产物
+*-outline-audit.md

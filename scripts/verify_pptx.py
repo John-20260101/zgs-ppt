@@ -34,12 +34,45 @@ def to_pdf(pptx: str) -> tuple[str | None, str]:
         return None, "未找到 soffice，无法渲染复核（只能依赖 build_pptx.py 的估算）"
     outdir = os.path.dirname(os.path.abspath(pptx))
     pdf = os.path.splitext(os.path.abspath(pptx))[0] + ".pdf"
+    # 先删旧 PDF：否则转换失败时会把上一次的旧件当成本次结果
+    if os.path.exists(pdf):
+        os.remove(pdf)
     proc = subprocess.run([soffice, "--headless", "--convert-to", "pdf",
                            "--outdir", outdir, os.path.abspath(pptx)],
                           capture_output=True, text=True)
     if not os.path.exists(pdf):
-        return None, f"PDF 转换失败：{proc.stderr.strip()[:200]}"
+        return None, (f"PDF 转换失败：{proc.stderr.strip()[:200] or 'soffice 返回非零'}"
+                      "（若 deck 来自 --template，很可能是包结构损坏，见 SKILL.md §11）")
     return pdf, ""
+
+
+def embedded_fonts(pdf: str) -> list[str]:
+    """PDF 里实际嵌入的字体名（用来判断目标字体是否被替换）。"""
+    tool = shutil.which("pdffonts")
+    if not tool:
+        return []
+    out = subprocess.run([tool, pdf], capture_output=True, text=True).stdout
+    names = []
+    for line in out.splitlines()[2:]:
+        parts = line.split()
+        if len(parts) >= 5 and parts[0].endswith(("Regular", "Bold", "W3", "W5", "W6")):
+            names.append(parts[0].split("+")[-1])
+        elif len(parts) >= 5:
+            names.append(parts[0].split("+")[-1])
+    return names
+
+
+def font_note(pdf: str) -> str:
+    """渲染件用的字体是不是目标字体；不是就明说量测误差来源。"""
+    got = embedded_fonts(pdf)
+    if not got:
+        return ""
+    has_cjk_target = any("YaHei" in n or "Microsoft" in n for n in got)
+    if has_cjk_target:
+        return ""
+    return ("字体替换：" + "、".join(got[:4]) +
+            "——目标字体未安装，行高与字重和 PowerPoint 里有差异，"
+            "本表的越界/压字判定只作参考，最终外观请在装有微软雅黑的机器上确认")
 
 
 def word_boxes(pdf: str):
@@ -124,18 +157,25 @@ def main():
     ap.add_argument("--expect-pages", type=int, default=0)
     ap.add_argument("--margin", type=float, default=MARGIN_PT)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--require", action="store_true",
+                    help="渲染复核不可用（缺 soffice / 转换失败）时退出 2，供 CI 使用")
     args = ap.parse_args()
 
     pdf, err = to_pdf(args.pptx)
     if not pdf:
         print(f"! {err}", file=sys.stderr)
-        sys.exit(0)  # 复核不可用不算失败，提示即可
+        # --require：CI 里没装 soffice 属于环境问题，必须硬失败，不能静默跳过
+        sys.exit(2 if args.require else 0)
 
     pages = word_boxes(pdf)
     report = {"file": os.path.basename(args.pptx), "pdf": os.path.basename(pdf),
               "pages": len(pages), "margin_pt": args.margin, "problems": []}
     bad_pages = 0
     print(f"渲染复核：{os.path.basename(args.pptx)} → {len(pages)} 页")
+    note = font_note(pdf)
+    if note:
+        print(f"! {note}", file=sys.stderr)
+        report["font_substituted"] = note
     print()
     print("| 页 | 词块 | 越界 | 压字 | 过小字号 |")
     print("| --: | --: | --: | --: | --: |")

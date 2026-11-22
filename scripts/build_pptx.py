@@ -64,6 +64,42 @@ GROUPS = {
     "Z5": ("就业赛道·职教组", ["职业目标", "岗位胜任力", "发展潜力"], (15, 20)),
 }
 
+# 备注口播的目标字数区间（字/分 = 269）。低于下限或高于上限都要报。
+NOTES_RANGE = {"Z1": (1750, 1900), "Z2": (1750, 1900),
+               "Z3": (1500, 1650), "Z4": (1500, 1650), "Z5": (1500, 1650)}
+SPEED_CPM = 269
+
+# 每页型的分级字数上限（与 references/slide-types.md §1 表格逐项对应）。
+# 超限只报 W：版面会自适应缩字号，但阅读型 PPT 的可读性靠的是「字数先守住」。
+CAPS: dict[str, dict[str, int]] = {
+    "cover": {"title": 20},
+    "section": {"title": 24},
+    "closing": {"title": 22},
+    "quote": {"text": 40},
+    "image": {"caption": 30},
+    "agenda": {"item_title": 40, "item_note": 40},
+    "bullets": {"item_text": 48, "item_note": 40},
+    "detail": {"lead": 60, "block_body": 90},
+    "cards": {"card_body": 70},
+    "kpi": {"value": 8, "label": 14},
+    "timeline": {"what": 36, "detail": 18},
+    "process": {"detail": 70},
+    "compare": {"item": 28},
+    "matrix": {"quad_text": 70},
+    "evidence": {"name": 30, "prove": 30},
+    "twocol": {"item": 30},
+}
+
+# 不会出现在版面上的键：字数统计时必须排除（列黑名单而非白名单，
+# 未知字段一律计入，宁可保守也不要漏算而让 page-thin 假通过）
+NON_VISIBLE_KEYS = {"notes", "id", "path", "image", "dim", "_template", "em", "no"}
+
+
+# 内容页（参与「薄/满」与底部空白判定的页型）
+CONTENT_TYPES = {"bullets", "detail", "cards", "process", "matrix", "table",
+                 "evidence", "twocol", "timeline", "compare"}
+
+
 
 DEFAULT_FONT = "Microsoft YaHei"   # 学生多在 Windows 上打开与放映；mac 装了 Office 也有
 
@@ -82,7 +118,9 @@ class Theme:
 
 
 def hexc(s: str) -> RGBColor:
-    s = s.strip().lstrip("#")
+    s = str(s).strip().lstrip("#")
+    if len(s) != 6 or any(c not in "0123456789abcdefABCDEF" for c in s):
+        raise ValueError(f"颜色必须是 6 位十六进制（如 #1F4E79），收到 {s!r}")
     return RGBColor(int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
 
 
@@ -149,22 +187,30 @@ class Ctx:
     def h(self, v: float) -> Emu:
         return Emu(int(v * 914400 * self.sy))
 
+    # 4:3 模板的缩放系数是 0.75，10.5pt 的注释会被压到 7.9pt（评委看不清）。
+    # 因此设 9.5pt 绝对下限：宁可略密，也不要把小字缩到读不出来。
+    MIN_RENDER_PT = 9.5
+
     def pt(self, v: float) -> Pt:
-        return Pt(max(8.0, v * self.fs))
+        return Pt(max(self.MIN_RENDER_PT, v * self.fs))
 
 
 def add_text(slide, ctx: Ctx, x, y, w, h, text, *, size=18, bold=False,
              color=None, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP,
              line_spacing=1.18, space_after=4, font=None, italic=False,
              char_spacing=None):
-    ctx.boxes.append((x, y, w, h, text if isinstance(text, str) else " ".join(text)))
+    # 登记的是「文字实际占的高度」而不是容器高度：容器常被撑到整栏，
+    # 用容器量版面跨度会把「只有一行字的三卡页」误判成内容饱满（F6 的根因）。
+    lines = text.split("\n") if isinstance(text, str) else list(text)
+    ink_h = min(h, est_block_height(lines, w, size))
+    ink_y = y + (h - ink_h) / 2 if anchor == MSO_ANCHOR.MIDDLE else y
+    ctx.boxes.append((x, ink_y, w, ink_h, text if isinstance(text, str) else " ".join(text)))
     box = slide.shapes.add_textbox(ctx.x(x), ctx.y(y), ctx.w(w), ctx.h(h))
     tf = box.text_frame
     tf.word_wrap = True
     tf.vertical_anchor = anchor
     tf.margin_left = tf.margin_right = Emu(0)
     tf.margin_top = tf.margin_bottom = Emu(0)
-    lines = text.split("\n") if isinstance(text, str) else list(text)
     for i, line in enumerate(lines):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.alignment = align
@@ -267,8 +313,9 @@ def s_cover(slide, ctx, spec, idx, warn):
 def s_section(slide, ctx, spec, idx, warn):
     t = ctx.theme
     num = spec.get("kicker", "")
-    add_text(slide, ctx, M - 0.08, 1.28, 3.2, 1.55, num, size=78, bold=True,
-             color=t.band if t.band != RGBColor(255, 255, 255) else hexc("#EDEFF4"))
+    # 大数字用水印色而不是 band：band 在白底上对比度只有约 1.05:1，等于看不见（实测 F7）
+    add_text(slide, ctx, M - 0.08, 1.28, 3.2, 1.55, str(num), size=78, bold=True,
+             color=t.muted if t.muted != t.bg else hexc("#B9C3D0"))
     title = spec.get("title", "")
     size, fill = fit_size([title], CW - 2 * M, 1.15, 34, 22)
     add_text(slide, ctx, M, 3.02, CW - 2 * M, 1.15, title, size=size, bold=True,
@@ -377,9 +424,16 @@ def s_kpi(slide, ctx, spec, idx, warn):
     max_lab = max(x[4] for x in sizes)
     value_h = max_lines * 34 * 1.30 / 72
     label_h = max_lab * 14 * 1.32 / 72
-    has_note = any(it.get("note") for it in items)
-    card_h = 0.28 + value_h + 0.20 + label_h + (0.34 if has_note else 0) + 0.20
-    card_h = max(2.05, min(2.95, card_h))
+    # 每张卡的注释按实际字数定高（原来固定 0.36in，长口径会溢出且无告警）
+    note_h = 0.0
+    for it in items:
+        note = it.get("note")
+        if note:
+            sz, _ = fit_size([str(note)], inner, 0.9, 10.5, 9)
+            note_h = max(note_h, est_block_height([str(note)], inner, sz) + 0.06)
+    card_h = 0.28 + value_h + 0.20 + label_h + (note_h + 0.10 if note_h else 0) + 0.20
+    # 上限抬到 3.40：4 张卡时原来 clamp 到 2.95 会留下整屏空白（实测 F6）
+    card_h = max(2.05, min(max(2.95, note_h + value_h + label_h + 0.9), 3.40))
 
     for i, (it, (val, size, lines, lab, lab_lines)) in enumerate(zip(items, sizes)):
         xx = M + i * (cw + gap)
@@ -393,8 +447,8 @@ def s_kpi(slide, ctx, spec, idx, warn):
                  size=14, color=t.ink, line_spacing=1.24)
         note = it.get("note")
         if note:
-            add_text(slide, ctx, xx + 0.3, label_y + label_h + 0.08, inner, 0.36,
-                     str(note), size=10.5, color=t.muted)
+            add_text(slide, ctx, xx + 0.3, label_y + label_h + 0.08, inner,
+                     max(note_h, 0.36), str(note), size=10.5, color=t.muted)
     tail = spec.get("note")
     if tail:
         add_text(slide, ctx, M, top + card_h + 0.34, CW - 2 * M, 0.55, tail,
@@ -473,10 +527,11 @@ def s_compare(slide, ctx, spec, idx, warn):
         items = [str(x) for x in (p.get("items") or [])]
         if len(items) > 4:
             heads.append(f"{p.get('head') or '对比栏'}：{len(items)} 条")
-        size, fill = fit_size([f"· {x}" for x in items], pw - 0.56, ph - 0.85, 14, 10.5)
+        size, fill = fit_size([f"· {x}" for x in items], pw - 0.56, ph - 0.85, 15.5, 10.5)
+        # 竖直居中：两栏各 3–4 条的页面原来「文字贴顶、下半屏空」，看着像空壳
         add_text(slide, ctx, xx + 0.28, top + 0.78, pw - 0.56, ph - 0.95,
                  "\n".join(f"· {x}" for x in items), size=size, color=t.ink,
-                 line_spacing=1.25, space_after=7)
+                 line_spacing=1.25, space_after=7, anchor=MSO_ANCHOR.MIDDLE)
         if fill > 1:
             warn.append(("W", "compare-overflow", f"对比栏溢出：{p.get('head')}"))
     if heads:
@@ -486,6 +541,17 @@ def s_compare(slide, ctx, spec, idx, warn):
              shape=MSO_SHAPE.OVAL)
     add_text(slide, ctx, cx - 0.26, top + ph / 2 - 0.16, 0.52, 0.32, "VS",
              size=12, bold=True, color=hexc("#FFFFFF"), align=PP_ALIGN.CENTER)
+    src = spec.get("source") or spec.get("note")
+    if src:
+        # 来源必须上版面：口径是评委追问的落点，也是本技能「数字要能查」的底线。
+        # note 里常已自带「来源：」，避免叠加成「数据来源：来源：…」
+        txt = str(src).strip()
+        for prefix in ("数据来源：", "数据来源:", "来源：", "来源:"):
+            if txt.startswith(prefix):
+                txt = txt[len(prefix):].strip()
+                break
+        add_text(slide, ctx, M, FOOT_Y - 0.42, CW - 2 * M, 0.3, f"数据来源：{txt}",
+                 size=10, color=t.muted)
     return {"title": spec.get("title", ""), "fill": 0.85}
 
 
@@ -504,8 +570,11 @@ def s_table(slide, ctx, spec, idx, warn):
     nrow, ncol = len(rows) + 1, len(headers)
     width = CW - 2 * M
     row_h = min(0.62, (BODY_H - 0.2) / nrow)
-    shape = slide.shapes.add_table(nrow, ncol, ctx.x(M), ctx.y(BODY_Y + 0.12),
+    top_y = BODY_Y + 0.12
+    shape = slide.shapes.add_table(nrow, ncol, ctx.x(M), ctx.y(top_y),
                                    ctx.w(width), ctx.h(row_h * nrow))
+    # 表格/图片是图形不是文本框，也要登记占地范围，否则「版面跨度」会误判成空页
+    ctx.boxes.append((M, top_y, width, row_h * nrow, "[table]"))
     table = shape.table
     table.first_row = True
     col_w = width / ncol
@@ -561,6 +630,7 @@ def s_image(slide, ctx, spec, idx, warn):
         x = M + (box_w - dw) / 2
         y = BODY_Y + 0.12 + (box_h - dh) / 2
         slide.shapes.add_picture(path, ctx.x(x), ctx.y(y), ctx.w(dw), ctx.h(dh))
+        ctx.boxes.append((x, y, dw, dh, "[picture]"))
     else:
         add_rect(slide, ctx, M, BODY_Y + 0.2, box_w, box_h - 0.2, t.band,
                  line=t.line)
@@ -670,7 +740,7 @@ def s_detail(slide, ctx, spec, idx, warn):
         body = str(b.get("body", ""))
         bsize, bfill = fit_size([body], bw - 0.56, bh - 1.12, 13.5, 10.5)
         add_text(slide, ctx, xx + 0.28, y + 0.92, bw - 0.56, bh - 1.12, body,
-                 size=bsize, color=t.ink, line_spacing=1.3)
+                 size=bsize, color=t.ink, line_spacing=1.3, anchor=MSO_ANCHOR.MIDDLE)
         fill = bfill if fill is None else max(fill, bfill)
     return {"title": spec.get("title", ""), "fill": fill}
 
@@ -720,8 +790,9 @@ def s_cards(slide, ctx, spec, idx, warn):
         bsize, bfill = fit_size([body], cw - 2 * pad, avail, 12.5, 9.5)
         if bfill > 1:
             warn.append(("W", "cards-overflow", f"卡片文字溢出：{head[:14]}"))
+        # 卡片高度由页型定，正文垂直居中，避免「文字贴顶 + 下方整片空」被当成空壳页
         add_text(slide, ctx, xx + pad, top, cw - 2 * pad, avail, body, size=bsize,
-                 color=t.ink, line_spacing=1.26)
+                 color=t.ink, line_spacing=1.26, anchor=MSO_ANCHOR.MIDDLE)
         fill = bfill if fill is None else max(fill, bfill)
     return {"title": spec.get("title", ""), "fill": fill}
 
@@ -755,7 +826,7 @@ def s_process(slide, ctx, spec, idx, warn):
         avail = h - 1.78
         dsize, dfill = fit_size([detail], w - 0.52, avail, 12.5, 10)
         add_text(slide, ctx, xx + 0.26, y + 1.66, w - 0.52, avail, detail,
-                 size=dsize, color=t.muted, line_spacing=1.3)
+                 size=dsize, color=t.muted, line_spacing=1.3, anchor=MSO_ANCHOR.MIDDLE)
         fill = dfill if fill is None else max(fill, dfill)
         if i < n - 1:
             ax = xx + w + 0.03
@@ -792,7 +863,7 @@ def s_matrix(slide, ctx, spec, idx, warn):
         avail = ch - 0.82
         bsize, bfill = fit_size([body], cw - 0.48, avail, 12.5, 9.5)
         add_text(slide, ctx, xx + 0.24, yy + 0.72, cw - 0.48, avail, body,
-                 size=bsize, color=t.ink, line_spacing=1.26)
+                 size=bsize, color=t.ink, line_spacing=1.26, anchor=MSO_ANCHOR.MIDDLE)
         fill = bfill if fill is None else max(fill, bfill)
     xl = spec.get("x_label")
     if xl:
@@ -832,11 +903,12 @@ def s_twocol(slide, ctx, spec, idx, warn):
             body = str(data.get("body", ""))
             texts = [body] if body else []
         avail = h - 1.06
-        size = 13.5
+        size = 15.5          # 从小字号起步会让 3 条要点只占三分之一，白白留空
         while size > 10 and sum(est_block_height([x_], w - 0.72, size) + 0.09
                                 for x_ in texts) > avail:
             size -= 1
-        yy = y + 0.92
+        block = sum(est_block_height([x_], w - 0.72, size) + 0.18 for x_ in texts)
+        yy = y + 0.92 + max(0.0, (avail - block) / 2)   # 竖直居中，留白对称
         for i, txt in enumerate(texts):
             add_rect(slide, ctx, x + 0.3, yy + 0.11, 0.22, 0.045, t.accent2)
             add_text(slide, ctx, x + 0.66, yy, w - 0.96,
@@ -849,6 +921,10 @@ def s_twocol(slide, ctx, spec, idx, warn):
         used = (yy - (y + 0.92)) / max(0.01, avail)
         fill = used if fill is None else max(fill, used)
 
+    src = spec.get("source") or spec.get("note")
+    if src:
+        add_text(slide, ctx, M, FOOT_Y - 0.42, CW - 2 * M, 0.3, f"数据来源：{src}",
+                 size=10, color=t.muted)
     panel(M, lw, left)
     if img:
         panel(M + lw + gap, lw, None)
@@ -915,36 +991,223 @@ BUILDERS = {
 
 # ---------------------------------------------------------------- 校验与装配
 
+def _is_str_list(v) -> bool:
+    """数组里每一项都是字符串（或可转成字符串的数字）。"""
+    return isinstance(v, list) and all(isinstance(x, (str, int, float)) for x in v)
+
+
+class WHOLE:
+    """标记：该规则校验整个数组值，而不是逐个元素。"""
+    def __init__(self, fn):
+        self.fn = fn
+
+
+def _check_list_field(errs, i, spec, key, *, required=True, item_check=None, code=""):
+    if key not in spec or spec.get(key) is None:
+        if required:
+            errs.append(("E", code or f"field-missing",
+                         f"第 {i} 页（{spec.get('type')}）缺少 {key}"))
+        return None
+    val = spec[key]
+    if not isinstance(val, list):
+        errs.append(("E", code or "field-type",
+                     f"第 {i} 页（{spec.get('type')}）的 {key} 应为数组，"
+                     f"实际是 {type(val).__name__}：{str(val)[:40]!r}"))
+        return None
+    if not val:
+        errs.append(("E", code or "field-missing",
+                     f"第 {i} 页（{spec.get('type')}）的 {key} 是空数组"))
+        return None
+    if isinstance(item_check, WHOLE):
+        msg = item_check.fn(val)
+        if msg:
+            errs.append(("E", code or "field-type", f"第 {i} 页 {key} {msg}"))
+        return val
+    if item_check:
+        for j, item in enumerate(val, 1):
+            msg = item_check(item)
+            if msg:
+                errs.append(("E", code or "field-type",
+                             f"第 {i} 页 {key}[{j}] {msg}"))
+    return val
+
+
+def _str_item(**fields):
+    """生成「元素必须是 str 或带指定字符串字段的 dict」的校验器。"""
+    def check(item):
+        if isinstance(item, (str, int, float)):
+            return ""
+        if not isinstance(item, dict):
+            return f"应为字符串或对象，实际是 {type(item).__name__}"
+        for f in fields:
+            if f not in item:
+                return f"缺少字段 {f}"
+            if not isinstance(item[f], (str, int, float)):
+                return f"的 {f} 应为字符串，实际是 {type(item[f]).__name__}"
+        return ""
+    return check
+
+
+def _panel(v):
+    """compare/twocol 的左右栏：接受 {head|title, items|bullets} 或直接给数组。"""
+    if isinstance(v, list):
+        return "" if all(isinstance(x, (str, int, float)) for x in v) else \
+            "数组元素应为字符串"
+    if not isinstance(v, dict):
+        return f"应为对象（含 items/bullets）或字符串数组，实际是 {type(v).__name__}"
+    for key in ("items", "bullets"):
+        if key in v:
+            if not isinstance(v[key], list):
+                return f"的 {key} 应为数组，实际是 {type(v[key]).__name__}"
+            if not all(isinstance(x, (str, int, float)) for x in v[key]):
+                return f"的 {key} 数组元素应为字符串"
+    if "items" not in v and "bullets" not in v and "body" not in v \
+            and "image" not in v:
+        return "缺少 items/bullets/body"
+    return ""
+
+
+SPEC_RULES = {
+    "cover": [("title", "str")],
+    "section": [("title", "str")],
+    "closing": [("title", "str")],
+    "quote": [("text", "str")],
+    "agenda": [("items", _str_item(title="title"))],
+    "bullets": [("bullets", _str_item(text="text"))],
+    "detail": [("blocks", _str_item(title="title", body="body"))],
+    "cards": [("cards", _str_item(title="title", body="body"))],
+    "kpi": [("items", _str_item(value="value", label="label"))],
+    "timeline": [("items", _str_item(when="when", what="what"))],
+    "process": [("steps", _str_item(title="title"))],
+    "matrix": [("quadrants", _str_item(title="title", text="text"))],
+    # WHOLE 标记：校验整个数组本身，而不是逐个元素
+    "table": [("headers", WHOLE(lambda v: "" if _is_str_list(v) else "应为字符串数组")),
+              ("rows", WHOLE(lambda v: "" if isinstance(v, list)
+                             and all(_is_str_list(r) for r in v)
+                             else "应为「字符串数组」的数组"))],
+    "evidence": [("items", _str_item(name="name", prove="prove"))],
+}
+
+VALID_THEMES = set(DEFAULT_THEMES)
+
+
 def validate(outline: dict) -> list[tuple[str, str, str]]:
-    errs = []
+    errs: list[tuple[str, str, str]] = []
+    if not isinstance(outline, dict):
+        return [("E", "no-outline", "outline 顶层应为 JSON 对象")]
     if not isinstance(outline.get("slides"), list) or not outline["slides"]:
         errs.append(("E", "no-slides", "outline.json 里没有 slides 数组"))
         return errs
+
+    grp = outline.get("group")
+    if grp is None:
+        errs.append(("W", "group-missing",
+                     f"未写 group，按 {sorted(GROUPS)[0]} 处理，页数与维度清单可能不符"))
+    elif grp not in GROUPS:
+        errs.append(("E", "group-invalid",
+                     f"group={grp!r} 不是 Z1–Z5（可选：{'、'.join(sorted(GROUPS))}）；"
+                     "写错组别会让页数区间与评分维度全部失效"))
+    if grp in GROUPS and outline.get("group_label"):
+        want = GROUPS[grp][0]
+        if str(outline["group_label"]).strip() != want:
+            errs.append(("W", "label-mismatch",
+                         f"group_label={outline['group_label']!r} 与 group={grp} 不符"
+                         f"（应为 {want!r}）；页脚会印错赛道"))
+
+    theme = outline.get("theme")
+    spec = outline.get("theme_spec")
+    if spec is not None and not isinstance(spec, dict):
+        errs.append(("E", "theme-spec-invalid", "theme_spec 应为对象"))
+    elif isinstance(spec, dict):
+        for k in ("ink", "accent", "accent2", "muted", "band", "line", "bg"):
+            if k in spec:
+                try:
+                    hexc(spec[k])
+                except ValueError as e:
+                    errs.append(("E", "theme-spec-invalid", f"theme_spec.{k}：{e}"))
+    elif theme is not None and theme not in VALID_THEMES:
+        errs.append(("E", "theme-invalid",
+                     f"theme={theme!r} 不存在（可选：{'、'.join(sorted(VALID_THEMES))}）；"
+                     "写错会被静默替换成 academic"))
+
     for i, s in enumerate(outline["slides"], 1):
+        if not isinstance(s, dict):
+            errs.append(("E", "no-type", f"第 {i} 页应为对象，实际是 {type(s).__name__}"))
+            continue
         if "type" not in s:
             errs.append(("E", "no-type", f"第 {i} 页缺少 type"))
             continue
-        if s["type"] not in BUILDERS:
-            errs.append(("E", "bad-type", f"第 {i} 页 type={s['type']} 不支持，可选：{', '.join(BUILDERS)}"))
+        kind = s["type"]
+        if kind not in BUILDERS:
+            errs.append(("E", "bad-type",
+                         f"第 {i} 页 type={kind} 不支持，可选：{', '.join(BUILDERS)}"))
+            continue
+        for key, rule in SPEC_RULES.get(kind, []):
+            if isinstance(rule, str):          # 必填字符串字段
+                if key not in s or s[key] is None:
+                    errs.append(("E", "field-missing",
+                                 f"第 {i} 页（{kind}）缺少 {key}"))
+                elif not isinstance(s[key], (str, int, float)):
+                    errs.append(("E", "field-type",
+                                 f"第 {i} 页（{kind}）的 {key} 应为字符串，"
+                                 f"实际是 {type(s[key]).__name__}"))
+                elif not str(s[key]).strip():
+                    errs.append(("E", "field-empty",
+                                 f"第 {i} 页（{kind}）的 {key} 是空字符串"))
+            else:
+                _check_list_field(errs, i, s, key, item_check=rule)
+        if kind == "compare":
+            for side in ("left", "right"):
+                if side not in s:
+                    errs.append(("E", "field-missing", f"第 {i} 页（compare）缺少 {side}"))
+                    continue
+                msg = _panel(s[side])
+                if msg:
+                    errs.append(("E", "field-type", f"第 {i} 页 compare.{side} {msg}"))
+        if kind == "twocol":
+            if not s.get("left") and not s.get("image"):
+                errs.append(("E", "field-missing",
+                             f"第 {i} 页（twocol）至少要给 left 或 image"))
+            if s.get("left"):
+                msg = _panel(s["left"])
+                if msg:
+                    errs.append(("E", "field-type", f"第 {i} 页 twocol.left {msg}"))
+            if s.get("right"):
+                msg = _panel(s["right"])
+                if msg:
+                    errs.append(("E", "field-type", f"第 {i} 页 twocol.right {msg}"))
+        if kind == "image" and "path" in s and s["path"] is not None \
+                and not isinstance(s["path"], str):
+            errs.append(("E", "field-type",
+                         f"第 {i} 页（image）的 path 应为字符串，"
+                         f"实际是 {type(s['path']).__name__}"))
+        if kind == "matrix" and isinstance(s.get("quadrants"), list) \
+                and len(s["quadrants"]) != 4:
+            errs.append(("W", "matrix-count",
+                         f"第 {i} 页四象限需要 4 块，当前 {len(s['quadrants'])} 块"))
+        dim = s.get("dim")
+        if dim is not None:
+            allowed = GROUPS.get(grp, GROUPS["Z1"])[1]
+            if str(dim).strip() not in allowed:
+                errs.append(("W", "dim-invalid",
+                             f"第 {i} 页 dim={dim!r} 不在 {grp or 'Z1'} 的维度清单"
+                             f"（{'、'.join(allowed)}）"))
     return errs
 
 
-SKIP_KEYS = {"notes", "id", "path", "image", "dim"}
-
-
 def spec_chars(spec) -> int:
-    """一页的可见文字量（不含备注/路径/维度标注）。"""
+    """一页真正会上版面的文字量（不含备注/路径/维度标注/未渲染字段）。"""
     def walk(v):
         if isinstance(v, str):
             return len("".join(v.split()))
         if isinstance(v, (int, float)):
             return 0
         if isinstance(v, dict):
-            return sum(walk(x) for k, x in v.items() if k not in SKIP_KEYS)
+            return sum(walk(x) for k, x in v.items() if k not in NON_VISIBLE_KEYS)
         if isinstance(v, list):
             return sum(walk(x) for x in v)
         return 0
-    return walk(spec)
+    return walk({k: v for k, v in spec.items() if k not in NON_VISIBLE_KEYS})
 
 
 def pick_layout(prs, kind: str):
@@ -962,6 +1225,115 @@ def pick_layout(prs, kind: str):
     return best
 
 
+def clear_template_slides(prs) -> int:
+    """清空模板自带的示例页，只保留母版/版式/主题。
+
+    关键点：只从 sldIdLst 摘掉条目是不够的——slide part 和它的 rel 仍在包里，
+    python-pptx 新建页时会复用同名 part（slide1.xml 出现两份），
+    结果是 zip 内重名、LibreOffice 拒载、PowerPoint 弹修复。必须 drop_rel。
+    """
+    stale = len(prs.slides)
+    sld_ids = prs.slides._sldIdLst
+    for sid in list(sld_ids):
+        rId = sid.get(qn("r:id"))
+        if rId:
+            prs.part.drop_rel(rId)
+        sld_ids.remove(sid)
+    return stale
+
+
+BODY_TOP_LIMIT = 1.90      # 版心起点（标题装饰线以下）：上方的 kicker/标题/色条不算正文
+BODY_MIN_SPAN = 2.50       # 版心高 4.55in，正文竖直跨度低于 55% 视作「没撑起来」
+
+
+def content_span(boxes) -> float | None:
+    """正文在竖直方向的实际跨度（英寸）；只看版心内的文字框，排除页脚/来源行。"""
+    body = [b for b in boxes
+            if b[1] >= BODY_TOP_LIMIT and b[1] + b[3] <= FOOT_Y - 0.30 and b[4].strip()]
+    if not body:
+        return None
+    top = min(b[1] for b in body)
+    bottom = max(b[1] + b[3] for b in body)
+    return round(bottom - top, 2)
+
+
+def _cap(code: str, i: int, what: str, got: int, limit: int) -> tuple[str, str, str]:
+    return ("W", f"cap-{code}",
+            f"第 {i} 页 {what} {got} 字，超过 {limit} 字上限（阅读型靠字数先守，不要靠缩字号）")
+
+
+def cap_warnings(kind: str, spec: dict, i: int) -> list[tuple[str, str, str]]:
+    """按 CAPS 表逐项查字数上限（文档 §1 表格的代码实现）。"""
+    out: list[tuple[str, str, str]] = []
+    caps = CAPS.get(kind, {})
+
+    def n(v) -> int:
+        return len("".join(str(v).split())) if v is not None else 0
+
+    def one(key, what, got, limit):
+        if got > limit:
+            out.append(_cap(key, i, what, got, limit))
+
+    if kind in ("cover", "section", "closing", "quote"):
+        one("title" if kind != "quote" else "text",
+            {"cover": "标题", "section": "标题", "closing": "标题", "quote": "引语"}[kind],
+            n(spec.get("title" if kind != "quote" else "text")), caps.get("title", caps.get("text", 10**6)))
+    if kind == "image" and "caption" in caps:
+        one("caption", "图片说明", n(spec.get("caption")), caps["caption"])
+    if kind == "agenda" and "item_title" in caps:
+        for j, it in enumerate(spec.get("items") or [], 1):
+            if isinstance(it, dict):
+                one("item-title", f"目录第 {j} 项标题", n(it.get("title")), caps["item_title"])
+                one("item-note", f"目录第 {j} 项注释", n(it.get("note")), caps["item_note"])
+    if kind == "bullets" and "item_text" in caps:
+        for j, it in enumerate(spec.get("bullets") or [], 1):
+            text = it.get("text") if isinstance(it, dict) else it
+            one("bullet", f"第 {j} 条要点", n(text), caps["item_text"])
+            if isinstance(it, dict):
+                one("bullet-note", f"第 {j} 条小字", n(it.get("note")), caps["item_note"])
+    if kind == "detail":
+        one("lead", "导语", n(spec.get("lead")), caps.get("lead", 10**6))
+        for j, b in enumerate(spec.get("blocks") or [], 1):
+            if isinstance(b, dict):
+                one("block-body", f"第 {j} 块正文", n(b.get("body")), caps.get("block_body", 10**6))
+    if kind == "cards":
+        for j, c in enumerate(spec.get("cards") or [], 1):
+            if isinstance(c, dict):
+                one("card-body", f"第 {j} 张卡正文", n(c.get("body")), caps.get("card_body", 10**6))
+    if kind == "kpi":
+        for j, it in enumerate(spec.get("items") or [], 1):
+            if isinstance(it, dict):
+                one("kpi-value", f"第 {j} 张卡数值", n(it.get("value")), caps.get("value", 10**6))
+                one("kpi-label", f"第 {j} 张卡标签", n(it.get("label")), caps.get("label", 10**6))
+    if kind == "timeline":
+        for j, it in enumerate(spec.get("items") or [], 1):
+            if isinstance(it, dict):
+                one("timeline-what", f"第 {j} 个节点标题", n(it.get("what")), caps.get("what", 10**6))
+                one("timeline-detail", f"第 {j} 个节点小字", n(it.get("detail")), caps.get("detail", 10**6))
+    if kind == "process":
+        for j, st in enumerate(spec.get("steps") or [], 1):
+            if isinstance(st, dict):
+                one("process-detail", f"第 {j} 步说明", n(st.get("detail")), caps.get("detail", 10**6))
+    if kind in ("compare", "twocol"):
+        key = "items" if kind == "compare" else "bullets"
+        for side in ("left", "right"):
+            v = spec.get(side)
+            items = v.get(key) if isinstance(v, dict) else v
+            for j, it in enumerate(items or [], 1):
+                text = it.get("text") if isinstance(it, dict) else it
+                one("item", f"{side} 第 {j} 条", n(text), caps.get("item", 10**6))
+    if kind == "matrix":
+        for j, q in enumerate(spec.get("quadrants") or [], 1):
+            if isinstance(q, dict):
+                one("quad", f"第 {j} 格正文", n(q.get("text")), caps.get("quad_text", 10**6))
+    if kind == "evidence":
+        for j, it in enumerate(spec.get("items") or [], 1):
+            if isinstance(it, dict):
+                one("evidence-name", f"第 {j} 条证据名", n(it.get("name")), caps.get("name", 10**6))
+                one("evidence-prove", f"第 {j} 条证明什么", n(it.get("prove")), caps.get("prove", 10**6))
+    return out
+
+
 def build(outline: dict, out_path: str, template: str | None = None, save: bool = True):
     theme = Theme(outline.get("theme_spec") or {})
     if isinstance(outline.get("theme"), str) and not outline.get("theme_spec"):
@@ -969,12 +1341,8 @@ def build(outline: dict, out_path: str, template: str | None = None, save: bool 
     slides = outline["slides"]
     if template:
         prs = Presentation(template)
-        # 模板里若自带示例页，先清空，只保留母版/版式/主题
-        stale = len(prs.slides)
+        stale = clear_template_slides(prs)
         if stale:
-            sld_ids = prs.slides._sldIdLst
-            for sid in list(sld_ids):
-                sld_ids.remove(sid)
             print(f"! 模板含 {stale} 页示例内容，已清空（母版与版式保留）", file=sys.stderr)
     else:
         prs = Presentation()
@@ -997,6 +1365,7 @@ def build(outline: dict, out_path: str, template: str | None = None, save: bool 
         ctx.boxes = []
         info = BUILDERS[kind](slide, ctx, spec, i, warn)
         warn.extend(overlap_check(ctx.boxes, i))
+        warn.extend(cap_warnings(kind, spec, i))
         if spec.get("notes"):
             slide.notes_slide.notes_text_frame.text = str(spec["notes"])
         title_len = len(info.get("title") or "")
@@ -1007,6 +1376,7 @@ def build(outline: dict, out_path: str, template: str | None = None, save: bool 
                      "fill": round(float(fv), 2) if isinstance(fv, (int, float)) else None,
                      "dim": spec.get("dim", ""), "chars": spec_chars(spec),
                      "notes_chars": len("".join(str(spec.get("notes", "")).split())),
+                     "content_span": content_span(ctx.boxes),
                      "warnings": warn})
         warnings.extend(warn)
     if save:
@@ -1026,8 +1396,7 @@ def audit(outline: dict, rows: list, template: str | None):
     missing = [d for d in dims if d not in covered]
     if missing:
         issues.append(("W", "dim-missing", f"未标注以下评分维度：{'、'.join(missing)}"))
-    CONTENT = {"bullets", "detail", "cards", "process", "matrix", "table",
-               "evidence", "twocol", "timeline", "compare"}
+    CONTENT = CONTENT_TYPES
     thin = [r["index"] for r in rows if r["type"] in CONTENT and r.get("chars", 0) < 90]
     dense = [r["index"] for r in rows if r["type"] in CONTENT and r.get("chars", 0) > 520]
     if thin:
@@ -1036,16 +1405,30 @@ def audit(outline: dict, rows: list, template: str | None):
     if dense:
         issues.append(("W", "page-dense",
                        f"第 {'、'.join(map(str, dense))} 页文字量偏大（>520 字）：考虑拆页或删细节"))
-    # 备注口播量：只作提示，不影响版面判定
-    SPEED = 269  # 字/分
+    # 版面底部空白：正文最低点远高于版心下沿，就是「空壳页」（不只看字数，看实际排到哪）
+    empties = [r["index"] for r in rows
+               if r["type"] in CONTENT
+               and isinstance(r.get("content_span"), (int, float))
+               and r["content_span"] < BODY_MIN_SPAN]
+    if empties:
+        issues.append(("W", "page-empty-bottom",
+                       f"第 {'、'.join(map(str, empties))} 页正文没撑起版面"
+                       f"（竖直跨度 <{BODY_MIN_SPAN}in，版心高 4.55in）："
+                       "加一条带口径的小字、换成 detail/cards，或把同类小页合并"))
+    # 备注口播量：区间两端都查（原来只查下限，「3000 字 ≈ 11′」这种超时写稿不会被拦）
     notes_total = sum(r.get("notes_chars", 0) for r in rows)
-    target = 1750 if group in ("Z1", "Z2") else 1500
-    minutes = notes_total / SPEED
-    if notes_total < target * 0.75:
+    lo_notes, hi_notes = NOTES_RANGE.get(group, NOTES_RANGE["Z1"])
+    seconds = notes_total / SPEED_CPM * 60
+    clock = f"{int(seconds // 60)}′{int(seconds % 60):02d}″"
+    if notes_total < lo_notes:
         issues.append(("W", "notes-short",
-                       f"备注合计 {notes_total} 字 ≈ {int(minutes)}′{int((minutes % 1) * 60):02d}″，"
-                       f"距 {'7′' if group in ('Z1', 'Z2') else '6′'} 目标还差约 {max(0, target - notes_total)} 字——"
-                       "逐字稿阶段补，不影响版面"))
+                       f"备注合计 {notes_total} 字 ≈ {clock}，未达 {lo_notes} 字下限——"
+                       "逐字稿阶段按页补，不影响版面"))
+    elif notes_total > hi_notes:
+        issues.append(("W", "notes-long",
+                       f"备注合计 {notes_total} 字 ≈ {clock}，超出 {hi_notes} 字上限 "
+                       f"{notes_total - hi_notes} 字：PPT 备注是口播底稿不是逐字稿，"
+                       "按页压到每页 90–110 字；直接截断会切掉关键判断"))
     empty = [r["index"] for r in rows if r.get("notes_chars", 0) == 0]
     if empty:
         issues.append(("W", "notes-missing",
@@ -1138,6 +1521,21 @@ def convert_pdf(pptx_path: str) -> bool:
     return os.path.exists(os.path.splitext(pptx_path)[0] + ".pdf")
 
 
+def load_outline(path: str) -> dict:
+    """读 outline.json：容忍 BOM（Windows 记事本/Excel 导出常见），错误信息要能照着修。"""
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        sys.exit(
+            f"[E] json-invalid: {path} 第 {e.lineno} 行第 {e.colno} 列解析失败：{e.msg}\n"
+            "     常见原因：结尾多逗号、用了中文引号、文件带 BOM（本脚本已容忍 BOM）、"
+            "或字段里混了未转义的换行。"
+        )
+    except OSError as e:
+        sys.exit(f"[E] io-error: 读不到 {path}：{e}")
+
+
 def main():
     ap = argparse.ArgumentParser(description="outline.json → 职规赛展示 PPTX")
     ap.add_argument("outline")
@@ -1148,10 +1546,11 @@ def main():
     ap.add_argument("--report", default=None, help="审计报告 markdown 路径")
     ap.add_argument("--pdf", action="store_true", help="尝试用 LibreOffice 导出 PDF")
     ap.add_argument("--audit-only", action="store_true")
+    ap.add_argument("--strict", action="store_true",
+                    help="机器门禁模式：任何 E、页数越界、文字紧度>100%% 都退出 2")
     args = ap.parse_args()
 
-    with open(args.outline, encoding="utf-8") as f:
-        outline = json.load(f)
+    outline = load_outline(args.outline)
 
     errs = validate(outline)
     fatal = [e for e in errs if e[0] == "E"]
@@ -1159,6 +1558,8 @@ def main():
         for lv, code, msg in fatal:
             print(f"[{lv}] {code}: {msg}", file=sys.stderr)
         sys.exit(2)
+    for lv, code, msg in [e for e in errs if e[0] != "E"]:
+        print(f"[{lv}] {code}: {msg}", file=sys.stderr)
 
     out = args.out or os.path.splitext(args.outline)[0] + ".pptx"
     if args.theme:
@@ -1173,39 +1574,65 @@ def main():
 
     hard = [w for w in warnings if w[0] == "E"] + [x for x in issues if x[0] == "E"]
     soft = [w for w in warnings if w[0] != "E"] + [x for x in issues if x[0] != "E"]
+    if args.strict:
+        gate = [("W", c, m) for _, c, m in soft
+                if c in ("page-count", "notes-long", "notes-missing", "notes-short")
+                or c.startswith("cap-")]
+        gate += [("W", "text-overflow",
+                  f"第 {r['index']} 页文字紧度 {r['fill']:.0%}：缩到下限仍溢出，必须删字")
+                 for r in rows if isinstance(r.get("fill"), (int, float)) and r["fill"] > 1]
+        hard = hard + gate
+        for lv, code, msg in gate:
+            print(f"✗ [strict] [{code}] {msg}", file=sys.stderr)
+
     if args.audit_only:
         print(f"✓ 审计完成（{len(rows)} 页，未写 pptx）")
     else:
         print(f"✓ 生成 {out}（{len(rows)} 页）")
     print(f"✓ 审计报告 {report}")
-    if soft:
+    if soft and not args.strict:
         print(f"! {len(soft)} 条提示（见报告）")
-    for lv, code, msg in hard:
+    for lv, code, msg in [h for h in hard if h[0] == "E"]:
         print(f"✗ [{code}] {msg}", file=sys.stderr)
 
+    pdf_ok: bool | None = None
     if args.pdf and not args.audit_only:
         if not (shutil.which("soffice") or shutil.which("libreoffice")):
-            print("! 未找到 LibreOffice，跳过 PDF", file=sys.stderr)
+            print("! 未找到 LibreOffice，跳过 PDF（装好后重跑 --pdf，或直接在 PowerPoint 里导出）",
+                  file=sys.stderr)
+            pdf_ok = False
         else:
             cur_font = (outline.get("theme_spec") or {}).get("font") or DEFAULT_FONT
             alt = preview_font_for(cur_font)
             if alt:
-                print(f"! 本机未装 {cur_font}，PDF 预览改用 {alt}（只影响预览件，pptx 字体不变）",
+                print(f"! 本机未装 {cur_font}，PDF 预览改用 {alt}"
+                      "（只影响预览件，pptx 字体不变；预览件的行高与字重仅供参考）",
                       file=sys.stderr)
                 tmp = os.path.splitext(out)[0] + ".preview.pptx"
                 o2 = json.loads(json.dumps(outline))
                 o2.setdefault("theme_spec", {})["font"] = alt
                 build(o2, tmp, args.template)
-                if convert_pdf(tmp):
+                pdf_ok = convert_pdf(tmp)
+                if pdf_ok:
                     os.replace(os.path.splitext(tmp)[0] + ".pdf",
                                os.path.splitext(out)[0] + ".pdf")
                     print(f"✓ 导出 PDF：{os.path.splitext(out)[0]}.pdf（预览字体 {alt}）")
-                if os.path.exists(tmp):
-                    os.remove(tmp)
+                for p in (tmp, os.path.splitext(tmp)[0] + ".pdf"):
+                    if os.path.exists(p):
+                        os.remove(p)
             else:
-                convert_pdf(out)
-                print(f"✓ 导出 PDF：{os.path.splitext(out)[0]}.pdf")
+                pdf_ok = convert_pdf(out)
+                if pdf_ok:
+                    print(f"✓ 导出 PDF：{os.path.splitext(out)[0]}.pdf")
+            if not pdf_ok:
+                msg = ("PDF 未生成：soffice 打不开这份 pptx（常见于模板包结构损坏，"
+                       "或本机 LibreOffice 版本过旧）——pptx 本身可能已损坏，请先按 "
+                       "§11 把原句报给用户，不要手工改 pptx 绕过 JSON")
+                print(f"✗ [pdf-failed] {msg}", file=sys.stderr)
+                hard = hard + [("E", "pdf-failed", msg)]
     if hard:
+        sys.exit(2 if args.strict or any(h[0] == "E" for h in hard) else 1)
+    if pdf_ok is False:
         sys.exit(1)
 
 

@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## 0.5.0 (2026-11-23)
+
+**生成链路实测审查后的修复版**：一次「读代码 + 真跑 17 页型 + 渲染成 PNG 复核」的审查找出 16 个问题，
+其中 4 个是 P0（产不出正确成品）。报告与证据图在 `docs/review/2026-11-22-zgs-ppt-v0.4.3.md`。
+
+### 修掉的 P0
+
+- **`--template` 产出的 pptx 是坏包**：清空模板示例页时只摘 `sldIdLst`、不释放 slide part，
+  新页复用同名 part，zip 内出现两份 `ppt/slides/slide1.xml`——LibreOffice 拒载、
+  PowerPoint 会要求「修复」。改为按 rId `drop_rel` 后再摘除，并有测试断言「无重名 part」。
+- **`compare` 的 `note`/`source` 不上版面**：来源行被静默丢弃，同时又被算进页字数。
+  现在渲染成页脚「数据来源：…」（自动去掉重复前缀），`twocol` 同样支持。
+- **`theme`/`group` 静默兜底**：拼错就悄悄换成 academic/Z1，页脚会印错赛道。现在 E 级退出 2。
+- **字段类型不校验**：`"bullets": "不是数组"` 会被按字符迭代成 4 条要点且 exit 0。
+  新增逐页型 `SPEC_RULES`（必填/类型/整表形状），不满足即 E 级退出 2。
+
+### 修掉的 P1
+
+- **字数上限、备注区间、紧度门禁全部落地**：`CAPS` 表逐项查（cover 20 / bullets 单条 48 /
+  compare 28 / timeline 36 …），备注查 1500–1650（6′）与 1750–1900（7′）**两端**，
+  `--strict` 把 E 级、页数越界、备注出区间、超上限、紧度 >100% 一并判失败。
+- **版面不再有「空壳页」而无信号**：新增 `page-empty-bottom`（正文竖直跨度 <2.5in 报警；
+  文字框按**实际文字高度**登记，表格/图片也计入）；`cards`/`detail`/`process`/`matrix`/`compare`/`twocol`
+  的正文改竖直居中，`twocol` 要点从 15.5pt 起自适应；`kpi` 卡高上限 2.95→3.40 且注释按实测折算。
+- **4:3 模板下小字被压到 7.9pt**：缩放系数 0.75 会把 10.5pt 注释压到读不出来的字号。
+  现在字号有 9.5pt 绝对下限（`verify_pptx` 的「过小字号」因此清零），版面仍等比缩放。
+- **章节页大数字几乎不可见**（band 色在白底上对比度 1.05:1）→ 改用 `muted`（4.6:1），并有对比度测试。
+- **`--pdf` 不再假报成功**：转换失败打印 `pdf-failed` 并计入失败；成功提示只在真出文件时给。
+- **页数口径统一为 15–20**：`check_deck.py` 的「≥12 页」、`slide-types.md` 的「12–16/12–15」、
+  `awarded-cases.md` 的「12–16 页」全部改齐；`check_deck.py` 新增 `--group` 按组别取区间。
+- **§3.1 一致性检查脚本化**：`scripts/check_outline.py`，**0 匹配即失败**（旧格式 md 会明确报
+  「可能不是 0.4.3 格式」），并校验页数一致；原来内联 heredoc 对旧格式会输出「全部对齐」。
+- **示例补齐到 18 页 Z5**：按 §2 四类补页新增岗位调研实录、二次证据、综合素质、班组长 vs 主管、
+  风险预案 5 页；内容只从 fixture（生涯发展报告 + 招聘公告）取材，备注 1649 字落在 6′ 区间。
+  大纲 md 重写为四项结构，可直接被 `check_outline.py` 核对。
+- **安装脚本自指死链**：默认路径下 `~/.agents/skills/zgs-ppt -> 自己`，三个客户端目录全读不到
+  SKILL.md。改为先立 `$DEST` 再指向它，并断言 `SKILL.md` 可读。
+
+### 工程与文档
+
+- 新增 `tests/`（stdlib unittest，29 项，零新依赖）：17 页型 sentinel 全字段上版面、上限与备注、
+  模板包结构、对比度、空页、一致性脚本、页数口径、材料抽取。
+- CI 重写为 4 个 job：`unit`（单测）、`deck`（18 页示例 `--strict` + 文件级 + 同源 + 审计断言）、
+  `render`（装 LibreOffice/poppler，跑模板路径 + `verify --require` + PDF 真存在）、`plugin`（插件自检）。
+  0.4.x 的 CI 只 build 一次且固化 `--expect 13`，从不覆盖 `--template`——P0 因此存活到发布。
+- 新增 `assets/school-template.pptx`（4:3，含 1 页示例内容）作模板夹具；`evals/evals.json` 对齐四项结构
+  并把 eval#3 指向该夹具（原来指向不存在的 `assets/学校模板.pptx`）。
+- 文档漂移清理：frontmatter `summary` 四套→五套、README 的「13 页/三套 13 页骨架」、
+  §12 硬编码解释器路径（改为 `python3 -c "import pptx"` 自检）、`awarded-cases` 的「七个案例」表实为 8 行。
+- `--strict`、`check_deck --group`、`verify --require` 三个新开关只加不改，旧命令行行为保持。
+
+
 ## 0.4.3 (2026-11-02)
 
 **封面与封底的结构定死**
