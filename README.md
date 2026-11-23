@@ -100,7 +100,15 @@ zgs-ppt/
 ## 发布产物
 
 `dist/zgs-ppt-flat.zip` 是按 WorkBuddy 开放平台规范打好的发布包（两级目录、SKILL.md 用 snake_case frontmatter、无二进制、101KB），
-更新技能时直接上传这个文件；重新生成用仓库根目录下 `python3` 脚本按 `.workbuddy/memory` 记录的打包规则重打（版本取自 `SKILL.md`）。
+更新技能时直接上传这个文件；重新生成一条命令：
+
+```bash
+python3 scripts/pack_workbuddy.py            # → dist/zgs-ppt-flat.zip（版本取自 SKILL.md）
+python3 scripts/pack_workbuddy.py --check-only   # 只校验现有包是否符合平台规范
+```
+
+脚本内写死了平台六条规则（两级目录、SKILL.md 在根、snake_case frontmatter、剔除二进制、
+压平后改引用、Python zipfile 保 UTF-8），跑完自检不过就退出 1。
 
 ## 依赖
 
