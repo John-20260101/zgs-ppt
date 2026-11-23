@@ -97,6 +97,11 @@ zgs-ppt/
 └── install.sh                   安装到各 CLI 技能目录（软链/复制/卸载）
 ```
 
+## 发布产物
+
+`dist/zgs-ppt-flat.zip` 是按 WorkBuddy 开放平台规范打好的发布包（两级目录、SKILL.md 用 snake_case frontmatter、无二进制、101KB），
+更新技能时直接上传这个文件；重新生成用仓库根目录下 `python3` 脚本按 `.workbuddy/memory` 记录的打包规则重打（版本取自 `SKILL.md`）。
+
 ## 依赖
 
 - Python 3.9+，`python-pptx`、`python-docx`、`Pillow`
