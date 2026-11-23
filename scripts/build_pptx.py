@@ -434,6 +434,18 @@ def s_kpi(slide, ctx, spec, idx, warn):
     card_h = 0.28 + value_h + 0.20 + label_h + (note_h + 0.10 if note_h else 0) + 0.20
     # 上限抬到 3.40：4 张卡时原来 clamp 到 2.95 会留下整屏空白（实测 F6）
     card_h = max(2.05, min(max(2.95, note_h + value_h + label_h + 0.9), 3.40))
+    # 注释按卡片实际可用高度复算：2 行以上或超出卡高就报 kpi-note-overflow（文档承诺的信号）
+    note_sz = 10.5
+    for it in items:
+        note = it.get("note")
+        if not note:
+            continue
+        avail_note = card_h - (0.28 + value_h + 0.20 + label_h + 0.08 + 0.20)
+        nlines = est_lines(str(note), inner, note_sz)
+        if nlines > 2 or est_block_height([str(note)], inner, note_sz) > avail_note:
+            warn.append(("W", "kpi-note-overflow",
+                         f"数字卡注释 {nlines} 行 / 超出卡高：{str(note)[:18]}"
+                         "（压到 2 行内，或把长口径移到 source 页脚）"))
 
     for i, (it, (val, size, lines, lab, lab_lines)) in enumerate(zip(items, sizes)):
         xx = M + i * (cw + gap)

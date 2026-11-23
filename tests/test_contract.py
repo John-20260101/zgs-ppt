@@ -341,6 +341,28 @@ class TestAuditSignals(Base):
         _, md = self._audit(thin)
         self.assertIn("page-empty-bottom", md)
 
+    def test_kpi_note_overflow_documented_signal(self):
+        """文档承诺的 kpi-note-overflow 必须真的会报：长口径压到 2 行以上/超出卡高。"""
+        long_note = ("2024.03–2026.06 由社区盖章记录，可核验；逐周台账 31 条，服务对象 42 人，"
+                     "累计时长以签退表为准；如有疑问可申请调阅原始签到表，另附社区证明一份")
+        out = {"group": "Z5", "slides": [
+            {"type": "cover", "title": "c", "subtitle": "s", "meta": ["m"], "notes": "n"},
+            {"type": "kpi", "title": "k",
+             "items": [{"value": "126 小时", "label": "社区志愿服务", "note": long_note},
+                       {"value": "8 周", "label": "福利院跟岗", "note": "2026.07–08，带教签字"}],
+             "notes": "n"},
+            {"type": "closing", "title": "e", "notes": "n"}]}
+        rows, warns = B.build(out, self.path("kpi.pptx"))
+        self.assertIn("kpi-note-overflow", [w[1] for w in warns])
+        rows2, warns2 = B.build({**out, "slides": [
+            out["slides"][0],
+            {"type": "kpi", "title": "k",
+             "items": [{"value": "126 小时", "label": "社区志愿服务", "note": "2024.03–2026.06"},
+                       {"value": "8 周", "label": "福利院跟岗", "note": "2026.07–08"}],
+             "notes": "n"},
+            out["slides"][2]]}, self.path("kpi2.pptx"))
+        self.assertNotIn("kpi-note-overflow", [w[1] for w in warns2])
+
     def test_table_counts_towards_body_span(self):
         rows = [["第 %d 行这一段单元格文字要足够长才好撑高行高" % i, "x"] for i in range(4)]
         out = {"group": "Z1", "slides": [
@@ -389,8 +411,16 @@ class TestExampleDeck(unittest.TestCase):
         example = os.path.join(ROOT, "examples", "case-wang")
         out = os.path.join(example, "王某某-outline.json")
         md = os.path.join(example, "王某某-求职综合展示-大纲.md")
-        r = run([os.path.join(SCRIPTS, "build_pptx.py"), out, "--audit-only", "--strict"])
+        # --audit-only 不带 --report 时会把 *-outline-audit.md 写进示例目录，
+        # 跑一次测试就污染仓库（0.5.0 实测踩到）。固定写到临时目录。
+        with tempfile.TemporaryDirectory() as tmp:
+            report = os.path.join(tmp, "audit.md")
+            r = run([os.path.join(SCRIPTS, "build_pptx.py"), out,
+                     "--audit-only", "--strict", "--report", report])
+            self.assertTrue(os.path.exists(report))
         self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse(os.path.exists(os.path.join(example, "王某某-outline-audit.md")),
+                         "示例目录不该出现 *-outline-audit.md 副产物")
         r2 = run([os.path.join(SCRIPTS, "check_outline.py"), out, md, "--quiet"])
         self.assertEqual(r2.returncode, 0, r2.stderr)
 
